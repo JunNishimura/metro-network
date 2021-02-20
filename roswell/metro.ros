@@ -17,5 +17,5 @@ exec ros -Q -- $0 "$@"
 
 (defun main (&rest argv)
   (declare (ignorable argv))
-  (format t "~A ~%" (cl-metro:romaji-to-kanji "meguro" *global-ekimei-list*)) )
+  (cl-metro:kyori-wo-hyouji "meguro" "tomoda" *global-ekimei-list* *global-ekikan-list*) )
 ;;; vim: set ft=lisp lisp:
