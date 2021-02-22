@@ -15,7 +15,12 @@ exec ros -Q -- $0 "$@"
 ;; load metro data
 (load "../data.lisp")
 
+(defun display-list (lst)
+  (cond ((null lst) nil)
+	(t (format t "name: ~a~%" (caar lst))
+	   (display-list (cdr lst)) )))
+
 (defun main (&rest argv)
   (declare (ignorable argv))
-  (cl-metro:kyori-wo-hyouji "meguro" "tomoda" *global-ekimei-list* *global-ekikan-list*) )
+  (display-list (cl-metro:koushin eki2 () *global-ekikan-list*)) )
 ;;; vim: set ft=lisp lisp:

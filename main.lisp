@@ -6,7 +6,10 @@
            :get-ekikan-kyori
 	   :kyori-wo-hyouji
            :make-eki-list
-	   ))
+           :shokika
+           :seiretsu
+	   :koushin
+	   :make-initial-eki-list))
 (in-package :cl-metro)
 
 ;; 目的：ローマ字名で受け取った駅の漢字表記を返す関数
@@ -40,18 +43,29 @@
 
 ;; 目的：(namae, saitan-kyori, temae-list)から成るリストの作成
 (defun make-eki-list (ekimei-list)
-  (cond ((null ekimei-list) nil)
-	(t (cons (list (caar ekimei-list) nil nil)
-		 (make-eki-list (cdr ekimei-list)) ))))
+  (mapcar #'(lambda (x) (list (car x) nil nil)) ekimei-list) )
+
 
 ;; 目的：与えられた駅で初期化する
+;; 入力：駅リストと出発点となる駅名（漢字)
+;; 出力：初期化された駅リスト
 (defun shokika (eki-list eki)
-  (cond ((null eki-list) nil)
-	((string= eki (caar eki-list))
-	 (cons (list eki 0 (list eki))
-	       (cdr eki-list) ))
-	(t (cons (car eki-list)
-		 (shokika (cdr eki-list) eki) ))))
+  (mapcar #'(lambda (x)
+	      (cond ((string= eki (car x))
+		     (list eki 0 (list eki)) )
+		    (t x)))
+	  eki-list ))
+
+;; 目的：(namae saitan-kyori temae-list)の構造から成る駅リストの作成、及び初期化
+;; 入力：駅名リストと出発点となる駅名（漢字）
+;; 出力：初期化済みの駅リスト
+(defun make-initial-eki-list (ekimei-list eki)
+  (mapcar #'(lambda (x)
+	      (cond ((string= eki (car x))
+		     (list eki 0 (list eki)) )
+		    (t (list (car x) nil nil)) ))
+	  ekimei-list ))
+
 
 ;; 目的：昇順に並んでいるリストの正しい位置に新しい駅を挿入する
 ;; 入力：昇順ソート済みのリスト, 新しい駅
@@ -84,9 +98,62 @@
  	   (list (car q) (+ kyori (cadr p)) (append (list (car q)) (caddr p))) )
 	  (t q) )))			; 更新の必要のない場合
 
+;; 目的：リストの各要素にkoushin1を適用する
+;; 入力：直前に確定した駅pと未確定の駅のリストv
+;; 出力：適切な処理を施した後のリストv
+(defun koushin (p v ekikan-list)
+  (mapcar #'(lambda (q)
+	        (let ((kyori (get-ekikan-kyori (car p) (car q) ekikan-list)))
+		  (cond ((null kyori) q) 		; 駅が繋がっていない場合は駅qをそのまま返す
+			((null (cadr q))		; 初訪問の時は更新
+			 (list (car q) (+ kyori (cadr p)) (append (list (car q)) (caddr p))) )
+			((< (+ kyori (cadr p)) (cadr q)) ; 既存の最短距離よりも短い時
+ 			 (list (car q) (+ kyori (cadr p)) (append (list (car q)) (caddr p))) )
+			(t q) )))	;更新の必要のない場合
+	  v ))
+
+
+;; 目的：fold_right関数の実装
+;; 入力：関数、リスト、初期要素
+;; 出力：リスト全体に渡って関数を適用した結果
+(defun fold-right (fn lst init)
+  (cond ((null lst) init)
+	(t (funcall fn (car lst) (fold-right fn (cdr lst) init))) ))
+
+;; 目的：駅リストの中から最短の駅とその駅を除いた駅リストを返す関数
+;; 入力：駅リスト
+;; 出力：(最短の駅　最短駅を除いた駅のリスト)のリスト
+;; (defun saitan-wo-bunri (eki-list)
+;;   (cond ((null eki-list) '(nil nil))
+;; 	(t (let ((result (saitan-wo-bunri (cdr eki-list))))
+;; 	     (cond ((and (null (car result))
+;; 			 (null (cadar eki-list)) )
+;; 		    (list nil (append (list (car eki-list)) (cadr result))) )
+;; 		   ((null (car result))
+;; 		    (list (car eki-list) (cadr result)) )
+;; 		   ((null (cadar eki-list))
+;; 		    (list (car result) (append (list (car eki-list)) (cadr result))) )
+;; 		   ((< (cadar eki-list) (cadar result)) ;最短を更新
+;; 		    (list (car eki-list) (append (list (car result)) (cadr result))) )
+;; 		   (t (list (car result) (append (list (car eki-list)) (cadr result)))) )))))
+;; fold-rightを使用した場合
+(defun saitan-wo-bunri (eki-list)
+  (fold-right #'(lambda (x y)
+		  (cond ((and (null (car y))
+			      (null (cadr x)) )
+			 (list nil (append (list x) (cadr y))) )
+		   ((null (car y))
+		    (list x (cadr y)) ) 
+		   ((null (cadr x))
+		    (list (car y) (append (list x) (cadr y))) )
+		   ((< (cadr x) (cadar y)) ;最短を更新
+		    (list x (append (list (car y)) (cadr y))) )
+		   (t (list (car y) (append (list x) (cadr y)))) ))
+	      eki-list
+	      (list nil nil) ))
+					
 (setq eki1 '("池袋" nil nil))
 (setq eki2 '("新大塚" 1.2 ("新大塚" "茗荷谷")))
 (setq eki3 '("茗荷谷" 0 ("茗荷谷")))
 (setq eki4 '("後楽園" nil nil))
-
-
+(setq eki-list (list eki1 eki2 eki3 eki4))

@@ -1,0 +1,4 @@
+; SLIME 2.26.1
+CL-USER> (romaji-to-kanji "asakusa" *global-ekimei-list*)
+"浅草"
+CL-USER> 

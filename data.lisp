@@ -1,3 +1,4 @@
+
 ;; data.lisp
 
 ;; (kanji kana romaji shozoku)
