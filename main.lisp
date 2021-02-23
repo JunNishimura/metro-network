@@ -2,14 +2,7 @@
 (in-package :cl-user)
 (defpackage :cl-metro
   (:use cl)
-  (:export :romaji-to-kanji
-           :get-ekikan-kyori
-	   :kyori-wo-hyouji
-           :make-eki-list
-           :shokika
-           :seiretsu
-	   :koushin
-	   :make-initial-eki-list))
+  (:export :dijkstra))
 (in-package :cl-metro)
 
 ;; 目的：ローマ字名で受け取った駅の漢字表記を返す関数
@@ -86,20 +79,8 @@
   (cond ((null ekimei-list) nil)
 	(t (ekimei-insert (seiretsu (cdr ekimei-list)) (car ekimei-list))) ))
 
-;; 目的：駅pと駅qがつながっているかを確認し、必要に応じて更新する
-;; 入力：駅p, 駅q, ekikan-list
-;; 出力：駅q(更新の有無に関係あらず)
-(defun koushin1 (p q ekikan-list)
-  (let ((kyori (get-ekikan-kyori (car p) (car q) ekikan-list)))
-    (cond ((null kyori) q) 		; 駅が繋がっていない場合は駅qをそのまま返す
-	  ((null (cadr q))		; 初訪問の時は更新
-	   (list (car q) (+ kyori (cadr p)) (append (list (car q)) (caddr p))) )
-	  ((< (+ kyori (cadr p)) (cadr q)) ; 既存の最短距離よりも短い時
- 	   (list (car q) (+ kyori (cadr p)) (append (list (car q)) (caddr p))) )
-	  (t q) )))			; 更新の必要のない場合
-
-;; 目的：リストの各要素にkoushin1を適用する
-;; 入力：直前に確定した駅pと未確定の駅のリストv
+;; 目的：vに含まれる駅について、駅pとつながっているかを確認し、必要に応じて更新する
+;; 入力：直前に確定した駅pと未確定の駅のリストvと駅間リスト
 ;; 出力：適切な処理を施した後のリストv
 (defun koushin (p v ekikan-list)
   (mapcar #'(lambda (q)
@@ -123,20 +104,6 @@
 ;; 目的：駅リストの中から最短の駅とその駅を除いた駅リストを返す関数
 ;; 入力：駅リスト
 ;; 出力：(最短の駅　最短駅を除いた駅のリスト)のリスト
-;; (defun saitan-wo-bunri (eki-list)
-;;   (cond ((null eki-list) '(nil nil))
-;; 	(t (let ((result (saitan-wo-bunri (cdr eki-list))))
-;; 	     (cond ((and (null (car result))
-;; 			 (null (cadar eki-list)) )
-;; 		    (list nil (append (list (car eki-list)) (cadr result))) )
-;; 		   ((null (car result))
-;; 		    (list (car eki-list) (cadr result)) )
-;; 		   ((null (cadar eki-list))
-;; 		    (list (car result) (append (list (car eki-list)) (cadr result))) )
-;; 		   ((< (cadar eki-list) (cadar result)) ;最短を更新
-;; 		    (list (car eki-list) (append (list (car result)) (cadr result))) )
-;; 		   (t (list (car result) (append (list (car eki-list)) (cadr result)))) )))))
-;; fold-rightを使用した場合
 (defun saitan-wo-bunri (eki-list)
   (fold-right #'(lambda (x y)
 		  (cond ((and (null (car y))
@@ -151,9 +118,31 @@
 		   (t (list (car y) (append (list x) (cadr y)))) ))
 	      eki-list
 	      (list nil nil) ))
-					
-(setq eki1 '("池袋" nil nil))
-(setq eki2 '("新大塚" 1.2 ("新大塚" "茗荷谷")))
-(setq eki3 '("茗荷谷" 0 ("茗荷谷")))
-(setq eki4 '("後楽園" nil nil))
-(setq eki-list (list eki1 eki2 eki3 eki4))
+
+;; 目的：各駅について最短距離と最短経路が正しく入ったリストを返す関数
+;; 入力：未確定の駅のリストと駅間リスト
+;; 出力：要素の最短距離と最短経路が正しく設定されたリスト
+(defun dijkstra-main (eki-list ekikan-list)
+  (cond ((null eki-list) nil)
+	(t (let ((result (saitan-wo-bunri eki-list)))
+	     (cons (car result)
+		   (dijkstra-main (koushin (car result) (cadr result) ekikan-list) ekikan-list)) ))))
+
+;; 目的：駅リストから渡された駅を返す関数
+;; 入力：駅リスト、駅名
+;; 出力：目的の駅
+(defun find-eki (ekimei eki-list)
+  (cond ((null eki-list) nil)
+	((string= ekimei (caar eki-list))
+	 (car eki-list))
+	(t (find-eki ekimei (cdr eki-list))) ))
+
+;; 目的：ダイクストラ法のメイン関数
+;; 入力：始点と終点の駅（ローマ字）
+;; 出力：最短経路を示すリスト
+(defun dijkstra (shiten shuten ekimei-list ekikan-list)
+  (let ((k-shiten (romaji-to-kanji shiten ekimei-list))
+	(k-shuten (romaji-to-kanji shuten ekimei-list)) )
+    (let ((eki-list (make-initial-eki-list ekimei-list k-shiten)))
+      (let ((result (dijkstra-main eki-list ekikan-list)))
+	(find-eki k-shuten result) ))))

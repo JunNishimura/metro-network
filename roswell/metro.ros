@@ -17,10 +17,9 @@ exec ros -Q -- $0 "$@"
 
 (defun display-list (lst)
   (cond ((null lst) nil)
-	(t (format t "name: ~a~%" (caar lst))
-	   (display-list (cdr lst)) )))
+	(t (format t "~A~%" (car lst))) ))
 
 (defun main (&rest argv)
   (declare (ignorable argv))
-  (display-list (cl-metro:koushin eki2 () *global-ekikan-list*)) )
+  (cl-metro:dijkstra "myogadani" "meguro" *global-ekimei-list* *global-ekikan-list*) )
 ;;; vim: set ft=lisp lisp:
